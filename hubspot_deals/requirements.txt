@@ -1,0 +1,30 @@
+# Minimal requirements for core functionality
+
+# Core FastAPI dependencies
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+SQLAlchemy==2.0.27
+pydantic==2.6.1
+
+# HTTP requests and Rate Limiting
+requests==2.31.0
+tenacity==8.2.3
+
+# Data processing and extraction
+dlt[postgres]==0.4.5
+
+# Database driver
+psycopg2-binary==2.9.9
+
+# Utilities
+python-dateutil==2.8.2
+asyncpg==0.29.0
+python-dotenv==1.0.1
+
+# Encryption support
+cryptography==41.0.8
+
+# Testing
+pytest==8.0.0
+pytest-asyncio==0.23.5
+httpx==0.26.0

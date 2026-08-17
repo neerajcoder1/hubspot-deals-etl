@@ -1,0 +1,13 @@
+{
+  "project_name": "hubspot-deals-etl",
+  "service_name": "hubspot_deals",
+  "template_path": "./template",
+  "destination_dir": ".",
+  "ports": {
+    "dev": 5200,
+    "stage": 5201,
+    "prod": 5202
+  },
+  "force_overwrite": true,
+  "verbose": false
+}
