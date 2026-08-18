@@ -5,6 +5,7 @@ from datetime import datetime, date
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+
 def make_json_serializable(obj):
     if obj is None:
         return None
@@ -23,14 +24,21 @@ def make_json_serializable(obj):
     elif isinstance(obj, (list, tuple)):
         return [make_json_serializable(item) for item in obj]
     elif isinstance(obj, dict):
-        return {str(key): make_json_serializable(value) for key, value in obj.items()}
-    elif hasattr(obj, '__dict__'):
+        return {
+            str(key): make_json_serializable(value)
+            for key, value in obj.items()
+        }
+    elif hasattr(obj, "__dict__"):
         try:
-            return {str(k): make_json_serializable(v) for k, v in obj.__dict__.items()}
-        except:
+            return {
+                str(k): make_json_serializable(v)
+                for k, v in obj.__dict__.items()
+            }
+        except Exception:
             return str(obj)
     else:
         return str(obj)
+
 
 def deep_serialize(data):
     if isinstance(data, dict):
@@ -43,85 +51,191 @@ def deep_serialize(data):
     else:
         return make_json_serializable(data)
 
-def build_dataset_name(organization_id: str, prefix: str = "hubspot_deals") -> str:
-    """Build a dataset name from organization ID"""
+
+def build_dataset_name(
+    organization_id: str,
+    prefix: str = "hubspot_deals"
+) -> str:
+    """Build a dataset name from organization ID."""
     return f"{prefix}_{organization_id.replace('-', '_')}"
 
+
 def build_dlt_env_vars(config: Dict[str, Any]) -> Dict[str, str]:
-    """Build DLT environment variables from config"""
+    """Build DLT environment variables from config."""
     return {
-        'DESTINATION__POSTGRES__CREDENTIALS__DATABASE': config.get('db_name', 'hubspot_data'),
-        'DESTINATION__POSTGRES__CREDENTIALS__USERNAME': config.get('db_user', 'postgres'),
-        'DESTINATION__POSTGRES__CREDENTIALS__PASSWORD': config.get('db_password', ''),
-        'DESTINATION__POSTGRES__CREDENTIALS__HOST': config.get('db_host', 'localhost'),
-        'DESTINATION__POSTGRES__CREDENTIALS__PORT': str(config.get('db_port', 5432)),
+        "DESTINATION__POSTGRES__CREDENTIALS__DATABASE":
+            config.get("db_name", "hubspot_data"),
+        "DESTINATION__POSTGRES__CREDENTIALS__USERNAME":
+            config.get("db_user", "postgres"),
+        "DESTINATION__POSTGRES__CREDENTIALS__PASSWORD":
+            config.get("db_password", ""),
+        "DESTINATION__POSTGRES__CREDENTIALS__HOST":
+            config.get("db_host", "localhost"),
+        "DESTINATION__POSTGRES__CREDENTIALS__PORT":
+            str(config.get("db_port", 5432)),
     }
 
-def build_sql_queries(dataset_name: str, table_name: str, limit: int = 100, offset: int = 0, scan_id: str = None) -> Dict[str, str]:
-    """Build SQL queries for data retrieval"""
+
+def build_sql_queries(
+    dataset_name: str,
+    table_name: str,
+    limit: int = 100,
+    offset: int = 0,
+    scan_id: str = None
+) -> Dict[str, str]:
+    """Build SQL queries for data retrieval."""
     full_table_name = f'"{dataset_name}"."{table_name}"'
-    
-    where_clause = f"WHERE _scan_id = '{scan_id}'" if scan_id else ""
-    
+
+    where_clause = (
+        f"WHERE _scan_id = '{scan_id}'"
+        if scan_id
+        else ""
+    )
+
     return {
-        'count': f"SELECT COUNT(*) as total FROM {full_table_name} {where_clause}",
-        'data': f"""
-            SELECT * FROM {full_table_name}
+        "count": (
+            f"SELECT COUNT(*) as total "
+            f"FROM {full_table_name} {where_clause}"
+        ),
+
+        "data": f"""
+            SELECT *
+            FROM {full_table_name}
             {where_clause}
             ORDER BY "_extracted_at" DESC, "id"
             LIMIT {limit} OFFSET {offset}
         """,
-        'columns_schema': f"""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_schema = '{dataset_name}' 
+
+        "columns_schema": f"""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = '{dataset_name}'
             AND table_name = '{table_name}'
             ORDER BY ordinal_position
         """,
-        'columns_structure': f'SELECT * FROM {full_table_name} LIMIT 0',
-        'tables_list': f"""
-            SELECT table_name 
-            FROM information_schema.tables 
+
+        "columns_structure":
+            f'SELECT * FROM {full_table_name} LIMIT 0',
+
+        "tables_list": f"""
+            SELECT table_name
+            FROM information_schema.tables
             WHERE table_schema = '{dataset_name}'
             AND table_name NOT LIKE '_dlt%'
         """
     }
 
-def convert_db_rows_to_dicts(rows: List[tuple], columns: List[str]) -> List[Dict[str, Any]]:
-    """Convert database rows to dictionary format with proper JSON serialization"""
+
+def convert_db_rows_to_dicts(
+    rows: List[tuple],
+    columns: List[str]
+) -> List[Dict[str, Any]]:
+    """Convert database rows to dictionaries with JSON serialization."""
     result = []
+
     for row in rows:
         if columns and len(columns) > 0:
             row_dict = {}
+
             for i, value in enumerate(row):
                 if i < len(columns):
                     col_name = columns[i].strip('"').strip("'")
                 else:
                     col_name = f"additional_field_{i}"
+
                 row_dict[col_name] = make_json_serializable(value)
+
             result.append(row_dict)
+
         else:
             row_dict = {}
+
             for i, value in enumerate(row):
                 row_dict[f"field_{i}"] = make_json_serializable(value)
+
             result.append(row_dict)
-    
+
     return result
 
-def extract_columns_from_result(result, fallback_columns: List[str] = None) -> List[str]:
-    """Extract column names from database result"""
-    if hasattr(result, 'description') and result.description:
+
+def extract_columns_from_result(
+    result,
+    fallback_columns: List[str] = None
+) -> List[str]:
+    """Extract column names from database result."""
+    if hasattr(result, "description") and result.description:
         columns = [desc[0] for desc in result.description]
+
         if columns:
             return columns
+
     return fallback_columns
 
-def build_pagination_info(total_count: int, limit: int, offset: int) -> Dict[str, Any]:
-    """Build pagination information"""
+
+def build_pagination_info(
+    total_count: int,
+    limit: int,
+    offset: int
+) -> Dict[str, Any]:
+    """Build pagination information."""
     return {
         "total": total_count,
         "limit": limit,
         "offset": offset,
         "hasMore": offset + limit < total_count,
-        "totalPages": max(1, (total_count + limit - 1) // limit) if total_count > 0 else 0
+        "totalPages": (
+            max(1, (total_count + limit - 1) // limit)
+            if total_count > 0
+            else 0
+        ),
     }
+
+
+def enhance_filters_with_metadata(
+    filters: Optional[Dict[str, Any]],
+    scan_id: str
+) -> Dict[str, Any]:
+    """
+    Add scan metadata to extraction filters.
+
+    Existing filter values are preserved and the scan ID
+    is added as extraction metadata.
+    """
+    enhanced = dict(filters or {})
+    enhanced["_scan_id"] = scan_id
+
+    return enhanced
+def calculate_duration(
+    start_time: Any,
+    end_time: Any = None
+) -> Optional[float]:
+    """
+    Calculate duration in seconds between two datetime values.
+    If end_time is not provided, use the current time.
+    """
+    from datetime import timezone
+    
+    if start_time is None:
+        return None
+
+    if isinstance(start_time, str):
+        try:
+            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+
+    if end_time is None:
+        end_time = datetime.now(timezone.utc)
+    elif isinstance(end_time, str):
+        try:
+            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+            
+    # Ensure both are either naive or timezone aware so we can subtract
+    if start_time.tzinfo is not None and end_time.tzinfo is None:
+        end_time = end_time.replace(tzinfo=timezone.utc)
+    elif start_time.tzinfo is None and end_time.tzinfo is not None:
+        start_time = start_time.replace(tzinfo=timezone.utc)
+
+    return (end_time - start_time).total_seconds()
