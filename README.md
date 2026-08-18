@@ -35,34 +35,46 @@ Scans are initiated via a non-blocking API endpoint and run as background tasks.
 
 ---
 
-## 🛠 How to Run Locally
+## 🛠 How to Run Locally (Windows)
 
 ### Prerequisites
-- Docker and Docker Compose installed
+- Python 3.11.9
+- PostgreSQL 16 installed locally and running on port `5433` (or your preferred port)
 - A valid HubSpot Private App Access Token
 
 ### Setup
-1. Clone the repository and navigate into the folder:
-   ```bash
-   cd hubspot-deals-etl
+1. Clone the repository and navigate into the `hubspot_deals` folder:
+   ```powershell
+   git clone https://github.com/neerajcoder1/hubspot-deals-etl.git
+   cd hubspot-deals-etl\hubspot_deals
    ```
-2. Navigate to the core service directory (if not running from root):
-   ```bash
-   cd hubspot_deals
+2. Create and activate a Python virtual environment:
+   ```powershell
+   python -m venv venv
+   .\venv\Scripts\activate
    ```
-3. Set up your environment variables by copying the example file:
-   ```bash
-   cp .env.example .env
+3. Install the dependencies:
+   ```powershell
+   pip install -r requirements.txt
    ```
-4. Insert your HubSpot Access token into the `.env` file:
+4. Set up your environment variables by copying the example file:
+   ```powershell
+   copy .env.example .env
+   ```
+5. Insert your PostgreSQL credentials and HubSpot token into the `.env` file:
    ```env
-   HUBSPOT_ACCESS_TOKEN=your_real_hubspot_token_here
+   DB_HOST=localhost
+   DB_PORT=5433
+   DB_USER=postgres
+   DB_PASSWORD=postgres
+   DB_NAME=hubspot_data
    ```
+   *(Note: Ensure you create a database called `hubspot_data` in pgAdmin before running the application).*
 
 ### Launch
-Start the application and PostgreSQL database using Docker Compose:
-```bash
-docker-compose up --build
+Start the FastAPI server:
+```powershell
+python app.py
 ```
 The FastAPI application will be accessible at: `http://localhost:5200`
 
@@ -76,18 +88,24 @@ Once the application is running, you can access the interactive Swagger UI at:
 ### 1. Start a Scan
 **`POST /api/v1/scan/start`**  
 Initiates a background extraction job for a specific tenant.
+**Example JSON Payload:**
 ```json
 {
+  "organizationId": "test_company_1",
+  "type": [
+    "deals"
+  ],
   "auth": {
-    "accessToken": "string"
+    "accessToken": "pat-na1-your-real-hubspot-token-here"
   },
-  "organizationId": "tenant_123"
+  "filters": {}
 }
 ```
 
 ### 2. Check Scan Status
 **`GET /api/v1/scan/status/{job_id}`**  
 Returns the current state of the job (e.g., `RUNNING`, `COMPLETED`, `FAILED`).
+*(Note: Ensure you do not include any trailing spaces when pasting the `job_id`!)*
 
 ### 3. Fetch Scan Results
 **`GET /api/v1/scan/result/{job_id}?limit=100&offset=0`**  
@@ -105,16 +123,10 @@ Deletes the job tracking history and entirely drops the isolated PostgreSQL sche
 
 ## 🧪 Testing
 
-Unit tests are written using `pytest`. To run the tests inside a local environment:
+Unit tests are written using `pytest`. To run the tests inside your local environment, ensure your `PYTHONPATH` is set correctly:
 
-```bash
-# Create a virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run tests
-pytest tests/
+```powershell
+.\venv\Scripts\activate
+$env:PYTHONPATH = "."
+pytest
 ```
