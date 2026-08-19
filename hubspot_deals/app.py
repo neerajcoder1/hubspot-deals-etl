@@ -17,15 +17,43 @@ async def lifespan(app: FastAPI):
     yield
     # Clean up resources if needed
 
+description = """
+**HubSpot Deals ETL Microservice** 🚀
+
+A production-ready data extraction microservice that securely fetches Deal records from the **HubSpot CRM API v3** and loads them into a **PostgreSQL** database using the **DLT (Data Load Tool)** framework.
+
+### Features
+* **Multi-Tenant Isolation**: Data is strictly segregated per organization schema.
+* **Robust Rate Limiting**: Internal rolling-window rate limiter respects HubSpot's 150 req/10s limit.
+* **Fault Tolerance**: Automatic exponential backoff and retries via Tenacity.
+* **Background Jobs**: Non-blocking asynchronous extraction pipeline.
+"""
+
+tags_metadata = [
+    {
+        "name": "Scans",
+        "description": "Operations for triggering, monitoring, and retrieving HubSpot Deal extractions.",
+    }
+]
+
 app = FastAPI(
-    title=config.APP_TITLE,
-    description=config.APP_DESCRIPTION,
+    title="HubSpot Deals ETL API",
+    description=description,
     version=config.APP_VERSION,
+    contact={
+        "name": "Data Engineering Team",
+        "url": "https://github.com/neerajcoder1/hubspot-deals-etl",
+    },
+    openapi_tags=tags_metadata,
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1, # Hide schemas at the bottom
+        "displayRequestDuration": True,
+        "syntaxHighlight.theme": "monokai"
+    }
 )
-
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,

@@ -17,18 +17,50 @@ scan_router = APIRouter(prefix="/scan", tags=["Scan"])
 config = get_config()
 extraction_service = ExtractionService(config.get_extraction_config(), source_type="hubspot_deals")
 
+from pydantic import BaseModel, Field, ConfigDict
+
 class AuthConfig(BaseModel):
-    accessToken: str = Field(..., description="HubSpot access token")
+    accessToken: str = Field(..., description="HubSpot Private App Access Token")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "accessToken": "pat-na1-xxxx-xxxx-xxxx-xxxx"
+            }
+        }
+    )
 
 class ScanRequest(BaseModel):
-    organizationId: str = Field(..., description="Tenant / Organization ID")
-    type: Optional[List[str]] = Field(default=["deals"], description="Type of extraction")
-    auth: AuthConfig = Field(..., description="Authentication configuration")
-    filters: Optional[Dict[str, Any]] = Field(default={}, description="Filters for extraction")
+    organizationId: str = Field(..., description="Unique Tenant or Organization ID for data isolation")
+    type: Optional[List[str]] = Field(default=["deals"], description="List of HubSpot objects to extract")
+    auth: AuthConfig = Field(..., description="Authentication payload")
+    filters: Optional[Dict[str, Any]] = Field(default={}, description="Optional filtering parameters")
 
-@scan_router.post("/start")
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "organizationId": "acme_corp_prod",
+                "type": ["deals"],
+                "auth": {
+                    "accessToken": "pat-na1-1234abcd-5678-efgh-9012-ijklmnop"
+                },
+                "filters": {
+                    "limit": 100,
+                    "archived": False
+                }
+            }
+        }
+    )
+
+@scan_router.post(
+    "/start",
+    summary="Initialize Extraction Job",
+    description="Starts an asynchronous data pipeline job to fetch deals from HubSpot. This endpoint returns immediately with a tracking `job_id`."
+)
 async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
-    """Start an asynchronous extraction job."""
+    """
+    Start an asynchronous extraction job.
+    """
     job_id = str(uuid.uuid4())
     
     request_config = {
@@ -59,7 +91,11 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@scan_router.get("/status/{job_id}")
+@scan_router.get(
+    "/status/{job_id}",
+    summary="Check Job Status",
+    description="Polls the PostgreSQL database to retrieve the live status (`pending`, `running`, `completed`, `failed`) and duration metrics of a specific extraction job."
+)
 async def get_scan_status(job_id: str):
     """Get the status of a specific scan"""
     status_data = extraction_service.get_scan_status(job_id)
@@ -76,11 +112,15 @@ async def get_scan_status(job_id: str):
         "error_message": status_data.get("errorMessage")
     }
 
-@scan_router.get("/result/{job_id}")
+@scan_router.get(
+    "/result/{job_id}",
+    summary="Retrieve Extracted Data",
+    description="Fetches the successfully extracted HubSpot Deals from the database. Strictly enforces isolation by only returning records associated with this specific `job_id`."
+)
 async def get_scan_result(
     job_id: str, 
-    limit: int = Query(50, ge=1, le=1000), 
-    offset: int = Query(0, ge=0)
+    limit: int = Query(50, ge=1, le=1000, description="Number of records to return"), 
+    offset: int = Query(0, ge=0, description="Number of records to skip for pagination")
 ):
     """Get scan results with pagination"""
     result = extraction_service.get_scan_results(job_id, table_name="hubspot_deals", limit=limit, offset=offset)
